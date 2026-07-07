@@ -3,7 +3,8 @@
 **DroneBird Navi QGIS Mobile** は、OpenAerialMap に公開されたドローンオルソ画像を、スマホ上で追加・重ね合わせ・確認できる現場向けミニ GIS です。
 
 **公開URL
-**https://akidinosaurs.github.io/dronebird-navi-qgis-mobile/
+**
+https://akidinosaurs.github.io/dronebird-navi-qgis-mobile/
 
 QGIS の「レイヤー追加」「表示 ON/OFF」「透明度調整」「順序変更」「ズーム」「削除」といった基本操作を、iOS Safari でも使いやすい Web アプリとして再設計しました。
 
