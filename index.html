@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<title>DroneBird Navi QGIS Mobile</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<link rel="preconnect" href="https://unpkg.com">
+<link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+<script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+<style>
+:root{
+  --bg:#0f172a;
+  --panel:#ffffff;
+  --muted:#64748b;
+  --line:#e2e8f0;
+  --primary:#2563eb;
+  --primary2:#1d4ed8;
+  --danger:#dc2626;
+  --ok:#16a34a;
+  --warn:#f59e0b;
+  --shadow:0 12px 30px rgba(15,23,42,.22);
+  --radius:18px;
+}
+*{box-sizing:border-box}
+html,body,#map{height:100%;width:100%;margin:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans JP",sans-serif;
+  background:#111827;
+  color:#0f172a;
+  overflow:hidden;
+}
+#map{position:absolute;inset:0}
+.maplibregl-ctrl-top-right{top:72px}
+.topbar{
+  position:absolute;
+  top:calc(10px + env(safe-area-inset-top));
+  left:10px;
+  right:10px;
+  z-index:10;
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.brand{
+  flex:1;
+  display:flex;
+  align-items:center;
+  gap:9px;
+  background:rgba(255,255,255,.96);
+  backdrop-filter:blur(14px);
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:16px;
+  padding:10px 12px;
+  box-shadow:var(--shadow);
+  min-width:0;
+}
+.logo{
+  width:34px;height:34px;border-radius:12px;
+  background:linear-gradient(135deg,#2563eb,#06b6d4);
+  display:flex;align-items:center;justify-content:center;
+  color:white;font-weight:900;
+}
+.brandText{line-height:1.1;min-width:0}
+.brandText b{font-size:14px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brandText span{font-size:11px;color:var(--muted)}
+.iconBtn{
+  width:48px;height:48px;border:0;border-radius:16px;
+  background:rgba(255,255,255,.96);
+  box-shadow:var(--shadow);
+  display:flex;align-items:center;justify-content:center;
+  font-size:21px;cursor:pointer;
+  border:1px solid rgba(226,232,240,.9);
+}
+.iconBtn:active{transform:scale(.98)}
+.statusChips{
+  position:absolute;
+  top:calc(72px + env(safe-area-inset-top));
+  left:10px;
+  right:10px;
+  z-index:9;
+  display:flex;
+  gap:6px;
+  overflow-x:auto;
+  padding-bottom:4px;
+  pointer-events:none;
+}
+.chip{
+  pointer-events:auto;
+  white-space:nowrap;
+  background:rgba(15,23,42,.82);
+  color:white;
+  border-radius:999px;
+  padding:7px 10px;
+  font-size:12px;
+  box-shadow:0 6px 18px rgba(15,23,42,.18);
+}
+.chip.ok{background:rgba(22,163,74,.92)}
+.chip.warn{background:rgba(245,158,11,.94);color:#111827}
+.chip.danger{background:rgba(220,38,38,.94)}
+.sheet{
+  position:absolute;
+  left:0;right:0;bottom:0;
+  z-index:20;
+  background:var(--panel);
+  border-radius:22px 22px 0 0;
+  box-shadow:0 -14px 36px rgba(15,23,42,.26);
+  transform:translateY(calc(100% - 82px - env(safe-area-inset-bottom)));
+  transition:transform .26s ease;
+  max-height:calc(88vh - env(safe-area-inset-top));
+  display:flex;
+  flex-direction:column;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.sheet.open{transform:translateY(0)}
+.handleZone{
+  padding:10px 16px 8px;
+  cursor:pointer;
+}
+.handle{
+  width:48px;height:5px;background:#cbd5e1;border-radius:99px;margin:0 auto 10px;
+}
+.sheetTitle{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+}
+.sheetTitle b{font-size:17px}
+.sheetTitle small{color:var(--muted)}
+.tabs{
+  display:flex;gap:6px;
+  padding:0 12px 10px;
+  overflow-x:auto;
+  border-bottom:1px solid var(--line);
+}
+.tab{
+  border:0;background:#f1f5f9;color:#0f172a;
+  border-radius:999px;padding:9px 12px;font-weight:650;
+  white-space:nowrap;cursor:pointer;
+}
+.tab.active{background:#dbeafe;color:#1d4ed8}
+.content{
+  overflow:auto;
+  padding:12px;
+}
+.section{display:none}
+.section.active{display:block}
+.row{display:flex;gap:8px;align-items:center}
+.field{
+  width:100%;
+  border:1px solid #cbd5e1;
+  border-radius:12px;
+  padding:12px;
+  font-size:15px;
+  background:#fff;
+}
+textarea.field{min-height:96px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+.primary{
+  border:0;background:var(--primary);color:white;border-radius:12px;
+  padding:12px 14px;font-weight:800;cursor:pointer;
+}
+.primary:hover{background:var(--primary2)}
+.secondary{
+  border:1px solid #cbd5e1;background:white;color:#0f172a;border-radius:12px;
+  padding:11px 12px;font-weight:750;cursor:pointer;
+}
+.dangerBtn{background:#fee2e2;color:#991b1b;border:0;border-radius:10px;padding:9px 10px;font-weight:800}
+.card{
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:12px;
+  margin:10px 0;
+  background:#fff;
+  box-shadow:0 6px 16px rgba(15,23,42,.06);
+}
+.card h3{margin:0 0 5px;font-size:15px}
+.card p{margin:0;color:var(--muted);font-size:12px;line-height:1.4}
+.metaGrid{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;
+}
+.metaBox{
+  background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;
+  padding:9px;font-size:12px;color:#334155;
+}
+.layerItem{
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:10px;
+  margin-bottom:10px;
+  background:#fff;
+}
+.layerHead{display:flex;gap:8px;align-items:center}
+.layerName{flex:1;min-width:0}
+.layerName b{font-size:14px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.layerName span{font-size:11px;color:var(--muted)}
+.layerTools{
+  display:flex;gap:6px;margin-top:9px;flex-wrap:wrap;
+}
+.toolBtn{
+  border:1px solid #cbd5e1;background:#f8fafc;border-radius:10px;
+  padding:7px 9px;font-size:12px;font-weight:700;cursor:pointer;
+}
+.rangeRow{display:flex;gap:8px;align-items:center;margin-top:9px}
+.rangeRow input{flex:1}
+.presetGrid{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;
+}
+.preset{
+  border:1px solid var(--line);background:#fff;border-radius:16px;padding:12px;text-align:left;
+  cursor:pointer;
+}
+.preset b{display:block;font-size:14px;margin-bottom:4px}
+.preset span{font-size:11px;color:var(--muted)}
+.toast{
+  position:absolute;
+  left:12px;right:12px;
+  bottom:calc(96px + env(safe-area-inset-bottom));
+  z-index:60;
+  background:#0f172a;color:white;border-radius:14px;
+  padding:11px 13px;font-size:13px;display:none;
+  box-shadow:var(--shadow);
+}
+.toast.show{display:block}
+.infoPanel{
+  position:absolute;
+  left:10px;right:10px;
+  bottom:calc(92px + env(safe-area-inset-bottom));
+  z-index:8;
+  background:rgba(255,255,255,.96);
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:16px;
+  padding:10px 12px;
+  box-shadow:var(--shadow);
+  display:none;
+}
+.infoPanel.show{display:block}
+.infoPanel b{font-size:13px}
+.infoPanel div{font-size:12px;color:#334155;margin-top:3px}
+.coordBox{
+  position:absolute;
+  left:10px;
+  bottom:calc(12px + env(safe-area-inset-bottom));
+  z-index:7;
+  background:rgba(15,23,42,.8);
+  color:white;
+  padding:7px 10px;
+  border-radius:999px;
+  font-size:11px;
+  max-width:calc(100% - 20px);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.badge{
+  display:inline-block;border-radius:999px;padding:3px 7px;
+  background:#e0f2fe;color:#075985;font-size:11px;font-weight:700;margin-right:4px;
+}
+.help{
+  font-size:12px;color:var(--muted);line-height:1.55;margin:8px 0;
+}
+.fileInput{
+  padding:10px;border:1px dashed #94a3b8;border-radius:12px;background:#f8fafc;width:100%;
+}
+.kv{font-size:12px;color:#334155;margin:4px 0}
+.linkBtn{color:var(--primary);font-weight:800;text-decoration:none}
+.measureBadge{
+  background:rgba(37,99,235,.92);
+}
+@media(min-width:720px){
+  .sheet{
+    left:16px;right:auto;width:390px;bottom:16px;border-radius:22px;
+    transform:translateY(calc(100% - 82px));
+    max-height:78vh;
+  }
+  .sheet.open{transform:translateY(0)}
+  .topbar{right:auto;width:390px}
+  .statusChips{right:auto;width:390px}
+  .infoPanel{left:420px;right:auto;width:360px}
+}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="topbar">
+  <div class="brand" onclick="openSheet('layers')">
+    <div class="logo">DB</div>
+    <div class="brandText">
+      <b>DroneBird Navi</b>
+      <span>QGIS-like mobile layer manager</span>
+    </div>
+  </div>
+  <button class="iconBtn" onclick="locateMe()" title="現在地">📍</button>
+  <button class="iconBtn" onclick="openSheet('add')" title="レイヤー追加">＋</button>
+  <button class="iconBtn" onclick="toggleSheet()" title="メニュー">☰</button>
+</div>
+
+<div class="statusChips">
+  <span class="chip ok" id="layerCountChip">0 layers</span>
+  <span class="chip warn" onclick="window.open('https://www.ossportal.dips.mlit.go.jp/portal/top/','_blank')">DIPS確認</span>
+  <span class="chip" onclick="setTab('hazard'); ensureSheetOpen()">防災レイヤー</span>
+  <span class="chip measureBadge" onclick="toggleMeasure()">距離計測</span>
+</div>
+
+<div class="infoPanel" id="infoPanel">
+  <b id="infoTitle">No layer selected</b>
+  <div id="infoBody"></div>
+</div>
+
+<div class="coordBox" id="coordBox">tap map: lon, lat</div>
+<div class="toast" id="toast"></div>
+
+<div class="sheet" id="sheet">
+  <div class="handleZone" onclick="toggleSheet()">
+    <div class="handle"></div>
+    <div class="sheetTitle">
+      <b>Layer Studio</b>
+      <small id="sheetStatus">追加・管理・保存</small>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" data-tab="layers" onclick="setTab('layers')">レイヤー</button>
+    <button class="tab" data-tab="add" onclick="setTab('add')">追加</button>
+    <button class="tab" data-tab="hazard" onclick="setTab('hazard')">防災</button>
+    <button class="tab" data-tab="oam" onclick="setTab('oam')">OAM検索</button>
+    <button class="tab" data-tab="project" onclick="setTab('project')">保存</button>
+  </div>
+
+  <div class="content">
+    <section class="section active" id="tab-layers">
+      <div class="row">
+        <button class="secondary" onclick="zoomToAll()">全レイヤー表示</button>
+        <button class="secondary" onclick="clearDynamicLayers()">全削除</button>
+      </div>
+      <div class="help">QGISのレイヤーパネル相当。表示、透明度、順序、ズーム、削除ができます。</div>
+      <div id="layersList"></div>
+    </section>
+
+    <section class="section" id="tab-add">
+      <div class="card">
+        <h3>OpenAerialMap URL / ID</h3>
+        <p>OAMのページURLを貼るだけで、APIからTMSとbbox取得を試します。横瀬の既知データはフォールバックも内蔵。</p>
+        <input class="field" id="oamUrl" placeholder="https://map.openaerialmap.org/#/.../6a374d65339a46ab3a85936f" />
+        <button class="primary" onclick="addOAMFromInput()">OAMから追加</button>
+      </div>
+      <div class="card">
+        <h3>XYZ / TMS Raster Tile</h3>
+        <p>QGISのXYZタイル追加相当。{z}/{x}/{y} を含むURLを追加できます。</p>
+        <input class="field" id="xyzName" placeholder="レイヤー名 例: 横瀬オルソ" />
+        <input class="field" id="xyzUrl" placeholder="https://.../{z}/{x}/{y}.png" />
+        <div class="row">
+          <input class="field" id="xyzBbox" placeholder="任意 bbox: minLon,minLat,maxLon,maxLat" />
+          <button class="primary" style="width:120px" onclick="addXYZFromInput()">追加</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>GeoJSON URL / 貼り付け / ファイル</h3>
+        <p>点・線・面を表示。避難所、被害箇所、現地メモなどに使えます。</p>
+        <input class="field" id="geoName" placeholder="レイヤー名 例: 避難所" />
+        <input class="field" id="geoUrl" placeholder="GeoJSON URL（任意）" />
+        <button class="secondary" onclick="addGeoJSONUrl()">URLから追加</button>
+        <textarea class="field" id="geoText" placeholder='GeoJSONを貼り付け'></textarea>
+        <button class="secondary" onclick="addGeoJSONText()">貼り付けGeoJSONを追加</button>
+        <input class="fileInput" type="file" id="geoFile" accept=".json,.geojson,application/geo+json,application/json" onchange="addGeoJSONFile(event)" />
+      </div>
+    </section>
+
+    <section class="section" id="tab-hazard">
+      <div class="help">国土地理院系の公開タイルをプリセット化。法的な飛行可否判定ではなく、現地確認の補助です。</div>
+      <div class="presetGrid">
+        <button class="preset" onclick="addPreset('gsi_std')"><b>GSI標準地図</b><span>背景比較用</span></button>
+        <button class="preset" onclick="addPreset('gsi_pale')"><b>GSI淡色地図</b><span>オルソ比較用</span></button>
+        <button class="preset" onclick="addPreset('flood')"><b>洪水浸水想定</b><span>防災確認</span></button>
+        <button class="preset" onclick="addPreset('slope')"><b>傾斜量図</b><span>地形確認</span></button>
+        <button class="preset" onclick="addPreset('hillshade')"><b>陰影起伏図</b><span>地形把握</span></button>
+        <button class="preset" onclick="addEvacSample()"><b>避難所サンプル</b><span>GeoJSON点</span></button>
+      </div>
+      <div class="card">
+        <h3>フライト確認リンク</h3>
+        <p>このアプリは公式な飛行許可判定ツールではありません。実運用ではDIPS・NOTAM・自治体/土地管理者確認を別途行ってください。</p>
+        <div class="row">
+          <button class="secondary" onclick="window.open('https://www.ossportal.dips.mlit.go.jp/portal/top/','_blank')">DIPS2.0</button>
+          <button class="secondary" onclick="window.open('https://maps.gsi.go.jp/','_blank')">地理院地図</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="tab-oam">
+      <div class="card">
+        <h3>OAM API検索</h3>
+        <p>OAM APIの /meta を検索します。CORSやAPI状態に依存するため、URL貼り付け・XYZ追加も併用できます。</p>
+        <div class="row">
+          <input class="field" id="oamSearch" placeholder="yokoze, school, flood..." />
+          <button class="primary" style="width:110px" onclick="searchOAM()">検索</button>
+        </div>
+      </div>
+      <div id="oamResults"></div>
+    </section>
+
+    <section class="section" id="tab-project">
+      <div class="card">
+        <h3>プロジェクト保存</h3>
+        <p>iOS SafariでもlocalStorageにレイヤー設定を保存できます。ファイル出力はブラウザの共有/ダウンロード挙動に依存します。</p>
+        <div class="row">
+          <button class="primary" onclick="saveProject()">端末に保存</button>
+          <button class="secondary" onclick="restoreProject()">復元</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="secondary" onclick="exportProject()">JSON出力</button>
+          <button class="dangerBtn" onclick="localStorage.removeItem(PROJECT_KEY); toast('保存を削除しました')">保存削除</button>
+        </div>
+        <input class="fileInput" type="file" accept=".json,application/json" onchange="importProjectFile(event)" />
+      </div>
+      <div class="card">
+        <h3>現在の表示</h3>
+        <div id="projectSummary" class="help"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+const PROJECT_KEY = "dronebird_navi_qgis_mobile_project_v1";
+const KNOWN_OAM = {
+  "6a374d65339a46ab3a85936f": {
+    title:"横瀬小学校 2026-06-21 09:42 / OAM",
+    tileUrl:"https://tiles.openaerialmap.org/6a374b43339a46ab3a858fe0/0/6a374b43339a46ab3a858fe1/{z}/{x}/{y}",
+    bbox:[139.096,35.984,139.1045,35.9905],
+    meta:{source:"OpenAerialMap fallback", repo:"dronebird/oam_yokoze20260621elementaryschool0942furuhashilab01dfl01"}
+  }
+};
+const PRESETS = {
+  gsi_std:{name:"GSI 標準地図", type:"raster", url:"https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png", opacity:1, base:true, attribution:"地理院タイル"},
+  gsi_pale:{name:"GSI 淡色地図", type:"raster", url:"https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", opacity:1, base:true, attribution:"地理院タイル"},
+  flood:{name:"洪水浸水想定区域（GSI）", type:"raster", url:"https://cyberjapandata.gsi.go.jp/xyz/lcmfc2/{z}/{x}/{y}.png", opacity:.55, attribution:"地理院タイル"},
+  slope:{name:"傾斜量図（GSI）", type:"raster", url:"https://cyberjapandata.gsi.go.jp/xyz/slopemap/{z}/{x}/{y}.png", opacity:.55, attribution:"地理院タイル"},
+  hillshade:{name:"陰影起伏図（GSI）", type:"raster", url:"https://cyberjapandata.gsi.go.jp/xyz/hillshademap/{z}/{x}/{y}.png", opacity:.55, attribution:"地理院タイル"}
+};
+let map, userMarker = null;
+let layers = [];
+let layerSeq = 0;
+let measureMode = false;
+let measurePoints = [];
+
+initMap();
+
+function initMap(){
+  map = new maplibregl.Map({
+    container:"map",
+    style:{
+      version:8,
+      sources:{
+        osm:{type:"raster", tiles:["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize:256, attribution:"© OpenStreetMap contributors"}
+      },
+      layers:[{id:"base_osm", type:"raster", source:"osm"}]
+    },
+    center:[139.100278,35.987222],
+    zoom:14,
+    pitch:0,
+    attributionControl:true
+  });
+  map.addControl(new maplibregl.NavigationControl({visualizePitch:true}), "top-right");
+  map.addControl(new maplibregl.ScaleControl({maxWidth:130,unit:"metric"}), "bottom-right");
+  map.on("click", onMapClick);
+  map.on("mousemove", e => {
+    document.getElementById("coordBox").textContent =
+      `${e.lngLat.lng.toFixed(6)}, ${e.lngLat.lat.toFixed(6)} / z${map.getZoom().toFixed(1)}`;
+  });
+  map.on("load", () => {
+    addPreset("gsi_pale", true);
+    addKnownYokoze();
+    updateProjectSummary();
+  });
+}
+
+function sanitizeId(s){ return String(s).replace(/[^a-zA-Z0-9_-]/g,"_").slice(0,60); }
+function newLayerId(prefix){ return `${prefix}_${Date.now()}_${++layerSeq}`; }
+function ensureSheetOpen(){ document.getElementById("sheet").classList.add("open"); }
+function toggleSheet(){ document.getElementById("sheet").classList.toggle("open"); }
+function openSheet(tab){ ensureSheetOpen(); if(tab) setTab(tab); }
+function setTab(tab){
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active", x.dataset.tab===tab));
+  document.querySelectorAll(".section").forEach(x=>x.classList.remove("active"));
+  document.getElementById(`tab-${tab}`).classList.add("active");
+}
+function toast(msg){
+  const el=document.getElementById("toast");
+  el.textContent=msg;
+  el.classList.add("show");
+  setTimeout(()=>el.classList.remove("show"),2600);
+}
+function setStatus(msg){ document.getElementById("sheetStatus").textContent = msg; }
+
+function addKnownYokoze(){
+  const k = KNOWN_OAM["6a374d65339a46ab3a85936f"];
+  addRasterLayer({name:k.title,url:k.tileUrl,opacity:.88,bbox:k.bbox,meta:k.meta,kind:"oam"});
+  fitBBox(k.bbox);
+}
+
+function addRasterLayer({name,url,opacity=.8,bbox=null,meta={},kind="raster"}){
+  if(!url || !url.includes("{z}") || !url.includes("{x}") || !url.includes("{y}")){
+    toast("XYZ URLは {z}/{x}/{y} を含めてください");
+    return null;
+  }
+  const id = newLayerId(kind);
+  map.addSource(id, {type:"raster", tiles:[url], tileSize:256, attribution:meta.attribution || ""});
+  map.addLayer({id, type:"raster", source:id, paint:{"raster-opacity":opacity}});
+  const layer = {id,name,type:"raster",url,opacity,visible:true,bbox,meta,kind};
+  layers.unshift(layer);
+  syncLayerOrder();
+  renderLayers();
+  updateInfo(layer);
+  toast(`追加: ${name}`);
+  updateProjectSummary();
+  return layer;
+}
+
+function addGeoJSONLayer({name,data,url=null,meta={}}){
+  const id = newLayerId("geojson");
+  map.addSource(id, {type:"geojson", data});
+  map.addLayer({id:id+"_fill", type:"fill", source:id, filter:["==", ["geometry-type"], "Polygon"], paint:{"fill-color":"#2563eb","fill-opacity":0.22}});
+  map.addLayer({id:id+"_line", type:"line", source:id, paint:{"line-color":"#1d4ed8","line-width":3}});
+  map.addLayer({id:id+"_circle", type:"circle", source:id, filter:["==", ["geometry-type"], "Point"], paint:{"circle-radius":7,"circle-color":"#ef4444","circle-stroke-width":2,"circle-stroke-color":"#fff"}});
+  const bbox = bboxGeoJSON(data);
+  const layer = {id,name,type:"geojson",url,opacity:1,visible:true,bbox,meta,kind:"geojson",data};
+  layers.unshift(layer);
+  syncLayerOrder();
+  renderLayers();
+  updateInfo(layer);
+  if(bbox) fitBBox(bbox);
+  toast(`追加: ${name}`);
+  updateProjectSummary();
+  return layer;
+}
+
+function syncLayerOrder(){
+  // Keep base at bottom; layer order follows layers array bottom-to-top reversed.
+  const ordered = [...layers].reverse();
+  ordered.forEach(l=>{
+    try{
+      if(l.type==="raster" && map.getLayer(l.id)) map.moveLayer(l.id);
+      if(l.type==="geojson"){
+        [l.id+"_fill", l.id+"_line", l.id+"_circle"].forEach(x=>{ if(map.getLayer(x)) map.moveLayer(x); });
+      }
+    }catch(e){}
+  });
+}
+function setLayerVisibility(layer, visible){
+  layer.visible=visible;
+  const v=visible ? "visible" : "none";
+  if(layer.type==="raster" && map.getLayer(layer.id)) map.setLayoutProperty(layer.id,"visibility",v);
+  if(layer.type==="geojson"){
+    [layer.id+"_fill", layer.id+"_line", layer.id+"_circle"].forEach(x=>{ if(map.getLayer(x)) map.setLayoutProperty(x,"visibility",v); });
+  }
+  renderLayers();
+}
+function setLayerOpacity(layer, opacity){
+  layer.opacity=Number(opacity);
+  if(layer.type==="raster" && map.getLayer(layer.id)) map.setPaintProperty(layer.id,"raster-opacity",layer.opacity);
+  if(layer.type==="geojson"){
+    if(map.getLayer(layer.id+"_fill")) map.setPaintProperty(layer.id+"_fill","fill-opacity",layer.opacity*.28);
+    if(map.getLayer(layer.id+"_line")) map.setPaintProperty(layer.id+"_line","line-opacity",layer.opacity);
+    if(map.getLayer(layer.id+"_circle")) map.setPaintProperty(layer.id+"_circle","circle-opacity",layer.opacity);
+  }
+}
+function removeLayer(layer){
+  if(layer.type==="raster"){
+    if(map.getLayer(layer.id)) map.removeLayer(layer.id);
+    if(map.getSource(layer.id)) map.removeSource(layer.id);
+  }
+  if(layer.type==="geojson"){
+    [layer.id+"_fill", layer.id+"_line", layer.id+"_circle"].forEach(x=>{ if(map.getLayer(x)) map.removeLayer(x); });
+    if(map.getSource(layer.id)) map.removeSource(layer.id);
+  }
+  layers = layers.filter(x=>x.id!==layer.id);
+  renderLayers();
+  updateProjectSummary();
+  toast(`削除: ${layer.name}`);
+}
+function moveLayer(layer, dir){
+  const i=layers.findIndex(x=>x.id===layer.id);
+  const ni=i+dir;
+  if(i<0 || ni<0 || ni>=layers.length) return;
+  [layers[i],layers[ni]]=[layers[ni],layers[i]];
+  syncLayerOrder();
+  renderLayers();
+}
+function renderLayers(){
+  document.getElementById("layerCountChip").textContent = `${layers.length} layers`;
+  const el=document.getElementById("layersList");
+  if(!layers.length){ el.innerHTML = `<div class="help">まだレイヤーがありません。</div>`; return; }
+  el.innerHTML = "";
+  layers.forEach((l, idx)=>{
+    const item=document.createElement("div");
+    item.className="layerItem";
+    item.innerHTML=`
+      <div class="layerHead">
+        <input type="checkbox" ${l.visible?"checked":""} aria-label="visibility">
+        <div class="layerName" onclick="updateInfoById('${l.id}')">
+          <b>${escapeHtml(l.name)}</b>
+          <span>${l.type} / ${l.kind || ""}</span>
+        </div>
+        <button class="toolBtn" title="上へ">↑</button>
+        <button class="toolBtn" title="下へ">↓</button>
+      </div>
+      <div class="rangeRow">
+        <span style="font-size:11px;color:#64748b">透明度</span>
+        <input type="range" min="0" max="1" step="0.05" value="${l.opacity}">
+        <span style="font-size:11px;color:#64748b">${Math.round(l.opacity*100)}%</span>
+      </div>
+      <div class="layerTools">
+        <button class="toolBtn">ズーム</button>
+        <button class="toolBtn">情報</button>
+        <button class="toolBtn">複製URL</button>
+        <button class="dangerBtn">削除</button>
+      </div>`;
+    const checks=item.querySelectorAll("input");
+    checks[0].onchange=e=>setLayerVisibility(l,e.target.checked);
+    checks[1].oninput=e=>{ setLayerOpacity(l,e.target.value); renderLayers(); };
+    const buttons=item.querySelectorAll("button");
+    buttons[0].onclick=()=>moveLayer(l,-1);
+    buttons[1].onclick=()=>moveLayer(l,1);
+    buttons[2].onclick=()=>{ if(l.bbox) fitBBox(l.bbox); else toast("bboxがありません"); };
+    buttons[3].onclick=()=>updateInfo(l);
+    buttons[4].onclick=async()=>{ 
+      const text=l.url || JSON.stringify(l.meta || {});
+      try{ await navigator.clipboard.writeText(text); toast("URL/情報をコピーしました"); }catch(e){ toast("コピーできませんでした");}
+    };
+    buttons[5].onclick=()=>removeLayer(l);
+    el.appendChild(item);
+  });
+}
+function updateInfoById(id){
+  const l=layers.find(x=>x.id===id);
+  if(l) updateInfo(l);
+}
+function updateInfo(layer){
+  const info=document.getElementById("infoPanel");
+  info.classList.add("show");
+  document.getElementById("infoTitle").textContent = layer.name;
+  const bbox = layer.bbox ? layer.bbox.map(x=>Number(x).toFixed(6)).join(", ") : "なし";
+  document.getElementById("infoBody").innerHTML = `
+    <div><span class="badge">${layer.type}</span><span class="badge">${layer.kind || "layer"}</span></div>
+    <div class="kv">opacity: ${Math.round(layer.opacity*100)}% / visible: ${layer.visible ? "on" : "off"}</div>
+    <div class="kv">bbox: ${bbox}</div>
+    ${layer.url ? `<div class="kv">url: ${escapeHtml(layer.url).slice(0,160)}${layer.url.length>160?"…":""}</div>` : ""}
+    ${layer.meta && layer.meta.source ? `<div class="kv">source: ${escapeHtml(layer.meta.source)}</div>` : ""}
+  `;
+}
+
+async function addOAMFromInput(){
+  const val=document.getElementById("oamUrl").value.trim();
+  if(!val) return toast("OAM URL/IDを入力してください");
+  setStatus("OAM読込中...");
+  try{
+    const ds = await resolveOAM(val);
+    if(!ds) return toast("OAMデータを取得できませんでした");
+    const layer = addRasterLayer({name:ds.title,url:ds.tileUrl,opacity:.88,bbox:ds.bbox,meta:ds.meta,kind:"oam"});
+    if(layer && ds.bbox) fitBBox(ds.bbox);
+    setStatus("OAM追加完了");
+  }catch(e){
+    console.error(e);
+    toast("OAM取得に失敗。XYZ URL追加を使ってください");
+    setStatus("OAM取得失敗");
+  }
+}
+function extractOAMId(input){
+  const m=String(input).match(/[a-f0-9]{24}/i);
+  return m ? m[0].toLowerCase() : null;
+}
+async function resolveOAM(input){
+  const id=extractOAMId(input);
+  if(!id) throw new Error("No OAM id");
+  // Known fallback first if exact known and API fails.
+  const urls = [
+    `https://api.openaerialmap.org/meta?id=${encodeURIComponent(id)}`,
+    `https://api.openaerialmap.org/meta/${encodeURIComponent(id)}`
+  ];
+  for(const api of urls){
+    try{
+      const res=await fetch(api);
+      if(!res.ok) continue;
+      const json=await res.json();
+      const item = Array.isArray(json.results) ? json.results[0] : (json.results ? json.results : json);
+      const ds = normalizeOAMItem(item, id);
+      if(ds && ds.tileUrl) return ds;
+    }catch(e){}
+  }
+  if(KNOWN_OAM[id]){
+    const k=KNOWN_OAM[id];
+    return {title:k.title,tileUrl:k.tileUrl,bbox:k.bbox,meta:k.meta};
+  }
+  throw new Error("OAM not resolved");
+}
+function normalizeOAMItem(d,id){
+  if(!d) return null;
+  let tms=null;
+  if(Array.isArray(d.tms)) tms=d.tms[0];
+  else if(typeof d.tms==="string") tms=d.tms;
+  else if(d.properties && Array.isArray(d.properties.tms)) tms=d.properties.tms[0];
+  else if(d.properties && typeof d.properties.tms==="string") tms=d.properties.tms;
+  // Some OAM API variants return uuid + scene_meta; no tms. Known fallback may cover.
+  const title=d.title || d.name || (d.properties && (d.properties.title || d.properties.name)) || `OAM ${id}`;
+  const bbox=d.bbox || (d.geojson && d.geojson.bbox) || (d.properties && d.properties.bbox) || null;
+  return {title,tileUrl:tms,bbox,meta:{source:"OpenAerialMap API", id, date:d.acquisition_start || d.acquisition_end || ""}};
+}
+function addXYZFromInput(){
+  const name=document.getElementById("xyzName").value.trim() || "XYZ Tile Layer";
+  const url=document.getElementById("xyzUrl").value.trim();
+  const bbox=parseBBox(document.getElementById("xyzBbox").value.trim());
+  const l=addRasterLayer({name,url,opacity:.8,bbox,meta:{source:"manual XYZ"},kind:"xyz"});
+  if(l && bbox) fitBBox(bbox);
+}
+function parseBBox(s){
+  if(!s) return null;
+  const arr=s.split(",").map(x=>Number(x.trim()));
+  return arr.length===4 && arr.every(Number.isFinite) ? arr : null;
+}
+async function addGeoJSONUrl(){
+  const name=document.getElementById("geoName").value.trim() || "GeoJSON URL Layer";
+  const url=document.getElementById("geoUrl").value.trim();
+  if(!url) return toast("GeoJSON URLを入力してください");
+  try{
+    const res=await fetch(url);
+    const data=await res.json();
+    addGeoJSONLayer({name,data,url,meta:{source:"GeoJSON URL"}});
+  }catch(e){ toast("GeoJSON URLの取得に失敗"); }
+}
+function addGeoJSONText(){
+  const name=document.getElementById("geoName").value.trim() || "Pasted GeoJSON";
+  const txt=document.getElementById("geoText").value.trim();
+  if(!txt) return toast("GeoJSONを貼り付けてください");
+  try{
+    const data=JSON.parse(txt);
+    addGeoJSONLayer({name,data,meta:{source:"pasted GeoJSON"}});
+  }catch(e){ toast("GeoJSONのJSON構文が不正です"); }
+}
+function addGeoJSONFile(event){
+  const file=event.target.files && event.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const data=JSON.parse(reader.result);
+      addGeoJSONLayer({name:file.name.replace(/\.(geo)?json$/i,""),data,meta:{source:"local file"}});
+    }catch(e){ toast("ファイルのJSON構文が不正です"); }
+  };
+  reader.readAsText(file);
+}
+function addPreset(key, silent=false){
+  const p=PRESETS[key];
+  if(!p) return;
+  if(layers.some(l=>l.name===p.name)){ if(!silent) toast("既に追加済み"); return; }
+  addRasterLayer({name:p.name,url:p.url,opacity:p.opacity,meta:{source:p.attribution || "preset"},kind:p.base?"basemap":"hazard"});
+}
+function addEvacSample(){
+  const data={
+    type:"FeatureCollection",
+    features:[
+      {type:"Feature",properties:{name:"横瀬町町民会館（サンプル）",type:"shelter"},geometry:{type:"Point",coordinates:[139.1001,35.9870]}},
+      {type:"Feature",properties:{name:"横瀬小学校（サンプル）",type:"shelter"},geometry:{type:"Point",coordinates:[139.1012,35.9862]}},
+      {type:"Feature",properties:{name:"横瀬町役場周辺（サンプル）",type:"shelter"},geometry:{type:"Point",coordinates:[139.1035,35.9892]}}
+    ]
+  };
+  addGeoJSONLayer({name:"避難所サンプル（横瀬）",data,meta:{source:"demo sample"}});
+}
+
+async function searchOAM(){
+  const q=document.getElementById("oamSearch").value.trim();
+  if(!q) return toast("検索語を入力してください");
+  const box=document.getElementById("oamResults");
+  box.innerHTML = `<div class="help">OAM API検索中...</div>`;
+  try{
+    const res=await fetch(`https://api.openaerialmap.org/meta?limit=12&search=${encodeURIComponent(q)}`);
+    const json=await res.json();
+    const items = json.results || [];
+    if(!items.length){ box.innerHTML=`<div class="help">結果なし。OAM URL貼り付けかXYZ追加を使ってください。</div>`; return; }
+    box.innerHTML="";
+    items.forEach((item,idx)=>{
+      const ds=normalizeOAMItem(item, extractOAMId(JSON.stringify(item)) || `search_${idx}`);
+      const card=document.createElement("div");
+      card.className="card";
+      card.innerHTML = `<h3>${escapeHtml(ds.title || "Untitled OAM")}</h3>
+        <p>${ds.tileUrl ? "TMSあり" : "TMS未検出"} / bbox: ${ds.bbox ? ds.bbox.join(", ") : "なし"}</p>
+        <button class="primary">この画像を追加</button>`;
+      card.querySelector("button").onclick=()=>{
+        if(!ds.tileUrl) return toast("この結果にはTMS URLが見つかりません");
+        const l=addRasterLayer({name:ds.title,url:ds.tileUrl,opacity:.85,bbox:ds.bbox,meta:ds.meta,kind:"oam"});
+        if(l && ds.bbox) fitBBox(ds.bbox);
+      };
+      box.appendChild(card);
+    });
+  }catch(e){
+    box.innerHTML=`<div class="help">OAM API検索に失敗。CORS/API状態の可能性があります。</div>`;
+  }
+}
+function locateMe(){
+  if(!navigator.geolocation) return toast("Geolocation非対応です");
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const lng=pos.coords.longitude, lat=pos.coords.latitude;
+    if(userMarker) userMarker.remove();
+    userMarker = new maplibregl.Marker({color:"#2563eb"}).setLngLat([lng,lat]).addTo(map);
+    map.flyTo({center:[lng,lat],zoom:17});
+    toast("現在地へ移動しました");
+  }, err=>toast("現在地取得に失敗。HTTPS/GPS権限を確認してください"), {enableHighAccuracy:true, timeout:10000});
+}
+function fitBBox(bbox){
+  if(!bbox || bbox.length!==4) return;
+  map.fitBounds([[bbox[0],bbox[1]],[bbox[2],bbox[3]]], {padding:{top:120,bottom:140,left:40,right:40}, maxZoom:19});
+}
+function zoomToAll(){
+  const bboxes=layers.map(l=>l.bbox).filter(Boolean);
+  if(!bboxes.length) return toast("bboxを持つレイヤーがありません");
+  const b=bboxes.reduce((acc,b)=>[Math.min(acc[0],b[0]),Math.min(acc[1],b[1]),Math.max(acc[2],b[2]),Math.max(acc[3],b[3])], bboxes[0]);
+  fitBBox(b);
+}
+function clearDynamicLayers(){
+  [...layers].forEach(removeLayer);
+  toast("全レイヤーを削除しました");
+}
+function onMapClick(e){
+  const lng=e.lngLat.lng, lat=e.lngLat.lat;
+  document.getElementById("coordBox").textContent = `${lng.toFixed(6)}, ${lat.toFixed(6)}`;
+  if(measureMode){
+    measurePoints.push([lng,lat]);
+    updateMeasureLayer();
+    return;
+  }
+  const html=`<b>座標</b><br>${lng.toFixed(6)}, ${lat.toFixed(6)}<br><button onclick="navigator.clipboard.writeText('${lng.toFixed(6)},${lat.toFixed(6)}')">コピー</button>`;
+  new maplibregl.Popup().setLngLat(e.lngLat).setHTML(html).addTo(map);
+}
+function toggleMeasure(){
+  measureMode=!measureMode;
+  if(measureMode){
+    measurePoints=[];
+    toast("距離計測ON：地図を順にタップ");
+  }else{
+    toast("距離計測OFF");
+  }
+}
+function updateMeasureLayer(){
+  const id="measure_layer";
+  const data={type:"FeatureCollection",features:[
+    {type:"Feature",properties:{},geometry:{type:"LineString",coordinates:measurePoints}},
+    ...measurePoints.map((p,i)=>({type:"Feature",properties:{i},geometry:{type:"Point",coordinates:p}}))
+  ]};
+  if(map.getSource(id)){
+    map.getSource(id).setData(data);
+  }else{
+    map.addSource(id,{type:"geojson",data});
+    map.addLayer({id:id+"_line",type:"line",source:id,paint:{"line-color":"#2563eb","line-width":4}});
+    map.addLayer({id:id+"_circle",type:"circle",source:id,paint:{"circle-radius":5,"circle-color":"#2563eb","circle-stroke-color":"#fff","circle-stroke-width":2}});
+  }
+  const dist=measureDistance(measurePoints);
+  document.getElementById("coordBox").textContent = `計測: ${dist<1000 ? dist.toFixed(1)+" m" : (dist/1000).toFixed(2)+" km"}`;
+}
+function measureDistance(coords){
+  let sum=0;
+  for(let i=1;i<coords.length;i++) sum += haversine(coords[i-1],coords[i]);
+  return sum;
+}
+function haversine(a,b){
+  const R=6371000, toRad=x=>x*Math.PI/180;
+  const dLat=toRad(b[1]-a[1]), dLon=toRad(b[0]-a[0]);
+  const la1=toRad(a[1]), la2=toRad(b[1]);
+  const x=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
+  return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+function bboxGeoJSON(gj){
+  const coords=[];
+  function walk(c){
+    if(typeof c[0]==="number") coords.push(c);
+    else c.forEach(walk);
+  }
+  (gj.features || [gj]).forEach(f=>{ if(f.geometry) walk(f.geometry.coordinates); });
+  if(!coords.length) return null;
+  return coords.reduce((b,c)=>[Math.min(b[0],c[0]),Math.min(b[1],c[1]),Math.max(b[2],c[0]),Math.max(b[3],c[1])],[coords[0][0],coords[0][1],coords[0][0],coords[0][1]]);
+}
+function saveProject(){
+  const st=projectState();
+  localStorage.setItem(PROJECT_KEY, JSON.stringify(st));
+  toast("端末に保存しました");
+}
+function restoreProject(){
+  const raw=localStorage.getItem(PROJECT_KEY);
+  if(!raw) return toast("保存がありません");
+  try{ loadProject(JSON.parse(raw)); toast("復元しました"); }catch(e){ toast("復元失敗"); }
+}
+function projectState(){
+  return {
+    view:{center:map.getCenter().toArray(),zoom:map.getZoom(),bearing:map.getBearing(),pitch:map.getPitch()},
+    layers:layers.map(l=>({
+      name:l.name,type:l.type,url:l.url,opacity:l.opacity,visible:l.visible,bbox:l.bbox,meta:l.meta,kind:l.kind,
+      data:l.type==="geojson" ? l.data : undefined
+    }))
+  };
+}
+function loadProject(st){
+  clearDynamicLayers();
+  if(st.view) map.jumpTo(st.view);
+  (st.layers || []).slice().reverse().forEach(l=>{
+    let nl=null;
+    if(l.type==="raster") nl=addRasterLayer(l);
+    if(l.type==="geojson" && l.data) nl=addGeoJSONLayer(l);
+    if(nl) { setLayerOpacity(nl,l.opacity ?? 1); setLayerVisibility(nl,l.visible !== false); }
+  });
+}
+function exportProject(){
+  const blob=new Blob([JSON.stringify(projectState(),null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url; a.download="dronebird-navi-project.json";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+function importProjectFile(event){
+  const file=event.target.files && event.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=()=>{ try{ loadProject(JSON.parse(reader.result)); toast("プロジェクトを読み込みました"); }catch(e){ toast("JSON読込失敗"); } };
+  reader.readAsText(file);
+}
+function updateProjectSummary(){
+  const el=document.getElementById("projectSummary");
+  if(!el) return;
+  const center=map.getCenter();
+  el.innerHTML = `中心: ${center.lng.toFixed(5)}, ${center.lat.toFixed(5)}<br>ズーム: ${map.getZoom().toFixed(2)}<br>レイヤー数: ${layers.length}`;
+}
+setInterval(updateProjectSummary, 1500);
+function escapeHtml(s){ return String(s ?? "").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m])); }
+</script>
+</body>
+</html>
